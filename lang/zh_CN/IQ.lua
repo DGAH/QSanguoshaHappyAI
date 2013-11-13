@@ -1,0 +1,15 @@
+return {
+	["StartIQSystem"] = "请选择AI智商",
+	["LevelO"] = "猪一般队友",
+	["LevelA"] = "菜鸟一只",
+	["LevelB"] = "围观路人",
+	["LevelC"] = "一般水准",
+	["LevelD"] = "学会思考",
+	["LevelE"] = "高端玩家",
+	["LevelX"] = "神一般存在",
+	["#ForbidIQ"] = "%from 放弃了可控AI智商系统！本局AI将以智商水平 %arg - %arg2 参与游戏。",
+	["#ChooseIQ"] = "%from 选择了本局AI的智商水平为：%arg - %arg2。",
+	["#xianzhuo"] = "%from 发动了技能 %arg ！这家伙不玩了！",
+	["_Xianzhuo"] = "掀桌",
+	[":_Xianzhuo"] = "出牌阶段，你可以令所有角色弃置所有手牌和装备并各流失一点体力上限，然后你立即死亡。",
+}

@@ -625,7 +625,7 @@ function SmartAI:initialize(player)
 		if method then
 			local success, result1, result2
 			success, result1, result2 = pcall(method, self, ...)
-self.room:writeToConsole(string.format("method=%s", method_name))
+--self.room:writeToConsole(string.format("method=%s", method_name))
 			if not success then
 				self.room:writeToConsole(result1)
 				self.room:writeToConsole(method_name)
@@ -1247,7 +1247,7 @@ function SmartAI:getGuhuoViewAsCard(class_name)
 		elseif class_name == "Jink" then
 			index = count
 		end
-msg(string.format("guhuo:%s", class_name))
+--msg(string.format("guhuo:%s", class_name))
 		local object_name = sgs.objectName[class_name]
 		assert(object_name)
 		local card = sgs[object_name]
@@ -7350,7 +7350,7 @@ function SmartAI:getTurnUseCard(handcards)
 		if #sgs.ai_current_series > 0 then --原有出牌序列还有牌可出
 			local break_func = sgs.ai_series[sgs.SeriesName]["break_condition"] --获取序列中断检测函数
 			if break_func and break_func(self) then --中断原有出牌序列
-msg("break:"..sgs.SeriesName)
+--msg("break:"..sgs.SeriesName)
 				self:windUpSeries("Break")
 			else --继续按原序列出牌
 				card = sgs.ai_current_series[1]

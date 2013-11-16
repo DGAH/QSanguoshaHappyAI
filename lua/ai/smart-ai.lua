@@ -1,5 +1,5 @@
 --[[
-	新版太阳神三国杀AI系统（独孤安河实验版）总控制文件
+	新版太阳神三国杀MOD之欢乐AI系统（独孤安河实验版）总控制文件
 ]]--
 require "middleClass"
 math.randomseed(os.time())
@@ -2671,7 +2671,7 @@ function SmartAI:initPartners(pos)
 	for _,other in ipairs(self.unknowns) do
 		table.insert(self.neutrals, other)
 	end
-self:Debug_ShowMyAttitude()
+--self:Debug_ShowMyAttitude()
 --sgs.Debug_ShowRelationship()
 end
 --[[
@@ -2791,7 +2791,7 @@ function SmartAI:choosePartner(pos)
 		sgs.ai_relationship[myname][XiaHouJie:objectName()] = "opponent"
 		table.remove(self.neutrals, 1)
 	end
-self:Debug_ShowMyAttitude()
+--self:Debug_ShowMyAttitude()
 --sgs.Debug_ShowRelationship()
 end
 --[[

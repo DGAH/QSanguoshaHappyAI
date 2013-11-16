@@ -1,5 +1,5 @@
 --[[
-	新版太阳神三国杀MOD之欢乐AI系统（独孤安河实验版）总控制文件
+	新版太阳神三国杀AI系统（独孤安河实验版）总控制文件
 ]]--
 require "middleClass"
 math.randomseed(os.time())
@@ -353,215 +353,251 @@ sgs.InitRelationship["gamerule"] = function()
 	end
 end
 --[[
-	功能：AI间关系初始化
-	参数：allplayers（sgs.QList<ServerPlayer*>类型，表示所有角色）
+	功能：国战模式AI间关系初始化
+	参数：无
 	结果：无
 ]]--
-function InitialRelationship(allplayers)
-	--国战模式
-	local function InitHegeRelationship()
-		if sgs.role_predictable then --身份预知
-			for _,p in sgs.qlist(allplayers) do
-				local kingdom = getHegemonyKingdom(p)
-				sgs.ai_camp[p:objectName()] = kingdom
-			end
-			for _,p in sgs.qlist(allplayers) do
-				local myname = p:objectName()
-				sgs.ai_relationship[myname][myname] = "partner"
-				local others = allplayers
-				others:removeOne(p)
-				for _,other in sgs.qlist(others) do
-					local name = other:objectName()
-					if sgs.ai_camp[myname] == sgs.ai_camp[name] then
-						sgs.ai_relationship[myname][name] = "partner"
-					else
-						sgs.ai_relationship[myname][name] = "opponent"
-					end
+sgs.InitRelationship["hegemony"] = function()
+	local allplayers = global_room:getAllPlayers()
+	if sgs.role_predictable then --身份预知
+		for _,p in sgs.qlist(allplayers) do
+			local kingdom = getHegemonyKingdom(p)
+			sgs.ai_camp[p:objectName()] = kingdom
+		end
+		for _,p in sgs.qlist(allplayers) do
+			local myname = p:objectName()
+			sgs.ai_relationship[myname][myname] = "partner"
+			local others = global_room:getOtherPlayers(p)
+			for _,other in sgs.qlist(others) do
+				local name = other:objectName()
+				if sgs.ai_camp[myname] == sgs.ai_camp[name] then
+					sgs.ai_relationship[myname][name] = "partner"
+				else
+					sgs.ai_relationship[myname][name] = "opponent"
 				end
 			end
-		else --非身份预知
-			for _,p in sgs.qlist(allplayers) do
-				local myname = p:objectName()
-				sgs.ai_relationship[myname][myname] = "partner"
-				local others = allplayers
-				others:removeOne(p)
-				for _,other in sgs.qlist(others) do
-					local name = other:objectName()
-					sgs.ai_relationship[myname][name] = "neutral"
-				end
+		end
+	else --非身份预知
+		for _,p in sgs.qlist(allplayers) do
+			local myname = p:objectName()
+			sgs.ai_relationship[myname][myname] = "partner"
+			local others = global_room:getOtherPlayers(p)
+			for _,other in sgs.qlist(others) do
+				local name = other:objectName()
+				sgs.ai_relationship[myname][name] = "neutral"
 			end
 		end
 	end
+end
+--[[
+	功能：KOF模式AI间关系初始化
+	参数：无
+	结果：无
+]]--
+sgs.InitRelationship["02_1v1"] = function()
+	sgs.role_predictable = true --身份预知
+	sgs.close_partners = true --不调整关系策略
+	local first = global_room:getLord()
+	local others = global_room:getOtherPlayers(first)
+	local second = others:first()
+	local name1 = first:objectName()
+	local name2 = second:objectName()
+	sgs.ai_camp[name1] = "warm"
+	sgs.ai_camp[name2] = "cold"
+	sgs.ai_relationship[name1][name2] = "opponent"
+	sgs.ai_relationship[name2][name1] = "opponent"
+	sgs.ai_relationship[name1][name1] = "partner"
+	sgs.ai_relationship[name2][name2] = "partner"
+	sgs.ai_lord[name1] = name1
+	table.insert(sgs.ai_lords, name1)
+end
+--[[
+	功能：2人身份局模式AI间关系初始化
+	参数：无
+	结果：无
+]]--
+sgs.InitRelationship["02p"] = function()
+	sgs.role_predictable = true --身份预知
+	sgs.close_partners = true --不调整关系策略
+	local first = global_room:getLord()
+	local others = global_room:getOtherPlayers(first)
+	local second = others:first()
+	local name1 = first:objectName()
+	local name2 = second:objectName()
+	sgs.ai_camp[name1] = "lord"
+	sgs.ai_camp[name2] = "renegade"
+	sgs.ai_relationship[name1][name2] = "opponent"
+	sgs.ai_relationship[name2][name1] = "opponent"
+	sgs.ai_relationship[name1][name1] = "partner"
+	sgs.ai_relationship[name2][name2] = "partner"
+	sgs.ai_lord[name1] = name1
+	table.insert(sgs.ai_lords, name1)
+end
+--[[
+	功能：虎牢关1v3模式AI间关系初始化
+	参数：无
+	结果：无
+]]--
+sgs.InitRelationship["04_1v3"] = function()
+	sgs.role_predictable = true --身份预知
+	sgs.close_partners = true --不调整关系策略
+	local lvbu = global_room:getLord()
+	local others = global_room:getOtherPlayers(lvbu)
+	local name = lvbu:objectName()
+	sgs.ai_camp[name] = "lvbu"
+	for _,p in sgs.qlist(others) do
+		sgs.ai_camp[p:objectName()] = "ally"
+	end
+	local allplayers = global_room:getAllPlayers()
+	for _,p in sgs.qlist(allplayers) do
+		local name1 = p:objectName()
+		sgs.ai_relationship[name1][name1] = "partner"
+		others = allplayers
+		others:removeOne(p)
+		for _,other in sgs.qlist(others) do
+			local name2 = other:objectName()
+			if sgs.ai_camp[name1] == sgs.ai_camp[name2] then
+				sgs.ai_relationship[name1][name2] = "partner"
+			else
+				sgs.ai_relationship[name1][name2] = "opponent"
+			end
+		end
+	end
+	sgs.ai_lord[name] = name
+	table.insert(sgs.ai_lords, name)
+end
+--[[
+	功能：3v3对战模式AI间关系初始化
+	参数：无
+	结果：无
+]]--
+sgs.InitRelationship["06_3v3"] = function()
+	sgs.role_predictable = true --身份预知
+	sgs.close_partners = true --不调整关系策略
+	local lord1, lord2 = nil, nil
+	local allplayers = global_room:getAllPlayers()
+	for _,p in sgs.qlist(allplayers) do
+		local name = p:objectName()
+		local role = p:getRole()
+		if role == "lord" then
+			sgs.ai_camp[name] = "warm"
+			lord1 = name
+			table.insert(sgs.ai_lords, lord1)
+		elseif role == "loyalist" then
+			sgs.ai_camp[name] = "warm"
+		elseif role == "renegade" then
+			sgs.ai_camp[name] = "cold"
+			lord2 = name
+			table.insert(sgs.ai_lords, lord2)
+		elseif role == "rebel" then
+			sgs.ai_camp[name] = "cold"
+		end
+	end
+	for _,p in sgs.qlist(allplayers) do
+		local name1 = p:objectName()
+		sgs.ai_relationship[name1][name1] = "partner"
+		if sgs.ai_camp[name1] == "warm" then
+			sgs.ai_lord[name1] = lord1
+		elseif sgs.ai_camp[name1] == "cold" then
+			sgs.ai_lord[name1] = lord2
+		end
+		local others = global_room:getOtherPlayers(p)
+		for _,other in sgs.qlist(others) do
+			local name2 = other:objectName()
+			if sgs.ai_camp[name1] == sgs.ai_camp[name2] then
+				sgs.ai_relationship[name1][name2] = "partner"
+			else
+				sgs.ai_relationship[name1][name2] = "opponent"
+			end
+		end
+	end
+end
+--[[
+	功能：血战到底模式AI间关系初始化
+	参数：无
+	结果：无
+]]--
+sgs.InitRelationship["06_xmode"] = function()
+	sgs.role_predictable = true --身份预知
+	sgs.close_partners = true --不调整关系策略
+	local allplayers = global_room:getAllPlayers()
+	for _,p in sgs.qlist(allplayers) do
+		local name = p:objectName()
+		local role = p:getRole()
+		if ("lord|loyalist"):match(role) then
+			sgs.ai_camp[name] = "warm"
+		elseif ("renegade|rebel"):match(role) then
+			sgs.ai_camp[name] = "cold"
+		end
+	end
+	for _,p in sgs.qlist(allplayers) do
+		local name1 = p:objectName()
+		local others = global_room:getOtherPlayers(p)
+		for _,other in sgs.qlist(others) do
+			local name2 = other:objectName()
+			if sgs.ai_camp[name1] == sgs.ai_camp[name2] then
+				sgs.ai_relationship[name1][name2] = "partner"	
+			else
+				sgs.ai_relationship[name1][name2] = "opponent"
+			end
+		end
+	end
+end
+--[[
+	功能：AI间关系初始化
+	参数：无
+	结果：无
+]]--
+function InitialRelationship()
 	sgs.close_partners = false
 	--KOF模式
 	if sgs.current_mode:find("02_1v1") then
-		sgs.role_predictable = true --身份预知
-		local first = global_room:getLord()
-		local others = allplayers
-		others:removeOne(first)
-		local second = others:first()
-		local name1 = first:objectName()
-		local name2 = second:objectName()
-		sgs.ai_camp[name1] = "warm"
-		sgs.ai_camp[name2] = "cold"
-		sgs.ai_relationship[name1][name2] = "opponent"
-		sgs.ai_relationship[name2][name1] = "opponent"
-		sgs.ai_relationship[name1][name1] = "partner"
-		sgs.ai_relationship[name2][name2] = "partner"
-		sgs.ai_lord[name1] = name1
-		table.insert(sgs.ai_lords, name1)
+		sgs.InitRelationship["02_1v1"]()
 	--2人局
 	elseif sgs.current_mode:find("02p") then
 		if sgs.hegemony_mode then --国战模式
-			InitHegeRelationship()
+			sgs.InitRelationship["hegemony"]()
 		else
-			sgs.role_predictable = true --身份预知
-			sgs.close_partners = true --不调整关系策略
-			local first = global_room:getLord()
-			local others = allplayers
-			others:removeOne(first)
-			local second = others:first()
-			local name1 = first:objectName()
-			local name2 = second:objectName()
-			sgs.ai_camp[name1] = "lord"
-			sgs.ai_camp[name2] = "renegade"
-			sgs.ai_relationship[name1][name2] = "opponent"
-			sgs.ai_relationship[name2][name1] = "opponent"
-			sgs.ai_relationship[name1][name1] = "partner"
-			sgs.ai_relationship[name2][name2] = "partner"
-			sgs.ai_lord[name1] = name1
-			table.insert(sgs.ai_lords, name1)
+			sgs.InitRelationship["02p"]()
 		end
 	--虎牢关1v3模式
 	elseif sgs.current_mode:find("04_1v3") then
-		sgs.role_predictable = true --身份预知
-		sgs.close_partners = true --不调整关系策略
-		local lvbu = global_room:getLord()
-		local others = allplayers
-		others:removeOne(lvbu)
-		local name = lvbu:objectName()
-		sgs.ai_camp[name] = "lvbu"
-		for _,p in sgs.qlist(others) do
-			sgs.ai_camp[p:objectName()] = "ally"
-		end
-		for _,p in sgs.qlist(allplayers) do
-			local name1 = p:objectName()
-			sgs.ai_relationship[name1][name1] = "partner"
-			others = allplayers
-			others:removeOne(p)
-			for _,other in sgs.qlist(others) do
-				local name2 = other:objectName()
-				if sgs.ai_camp[name1] == sgs.ai_camp[name2] then
-					sgs.ai_relationship[name1][name2] = "partner"
-				else
-					sgs.ai_relationship[name1][name2] = "opponent"
-				end
-			end
-		end
-		sgs.ai_lord[name] = name
-		table.insert(sgs.ai_lords, name)
+		sgs.InitRelationship["04_1v3"]()
 	--3v3对战模式
 	elseif sgs.current_mode:find("06_3v3") then
-		sgs.role_predictable = true --身份预知
-		sgs.close_partners = true --不调整关系策略
-		local lord1, lord2 = nil, nil
-		for _,p in sgs.qlist(allplayers) do
-			local name = p:objectName()
-			local role = p:getRole()
-			if role == "lord" then
-				sgs.ai_camp[name] = "warm"
-				lord1 = name
-				table.insert(sgs.ai_lords, lord1)
-			elseif role == "loyalist" then
-				sgs.ai_camp[name] = "warm"
-			elseif role == "renegade" then
-				sgs.ai_camp[name] = "cold"
-				lord2 = name
-				table.insert(sgs.ai_lords, lord2)
-			elseif role == "rebel" then
-				sgs.ai_camp[name] = "cold"
-			end
-		end
-		for _,p in sgs.qlist(allplayers) do
-			local name1 = p:objectName()
-			sgs.ai_relationship[name1][name1] = "partner"
-			if sgs.ai_camp[name1] == "warm" then
-				sgs.ai_lord[name1] = lord1
-			elseif sgs.ai_camp[name1] == "cold" then
-				sgs.ai_lord[name1] = lord2
-			end
-			local others = allplayers
-			others:removeOne(p)
-			for _,other in sgs.qlist(others) do
-				local name2 = other:objectName()
-				if sgs.ai_camp[name1] == sgs.ai_camp[name2] then
-					sgs.ai_relationship[name1][name2] = "partner"
-				else
-					sgs.ai_relationship[name1][name2] = "opponent"
-				end
-			end
-		end
+		sgs.InitRelationship["06_3v3"]()
 	--血战到底模式
 	elseif sgs.current_mode:find("06_xmode") then
-		sgs.role_predictable = true --身份预知
-		sgs.close_partners = true --不调整关系策略
-		for _,p in sgs.qlist(allplayers) do
-			local name = p:objectName()
-			local role = p:getRole()
-			if ("lord|loyalist"):match(role) then
-				sgs.ai_camp[name] = "warm"
-			elseif ("renegade|rebel"):match(role) then
-				sgs.ai_camp[name] = "cold"
-			end
-		end
-		for _,p in sgs.qlist(allplayers) do
-			local name1 = p:objectName()
-			local others = allplayers
-			others:removeOne(p)
-			for _,other in sgs.qlist(others) do
-				local name2 = other:objectName()
-				if sgs.ai_camp[name] == sgs.ai_camp[name2] then
-					sgs.ai_relationship[name1][name2] = "partner"	
-				else
-					sgs.ai_relationship[name1][name2] = "opponent"
-				end
-			end
-		end
+		sgs.InitRelationship["06_xmode"]()
 	--小型场景模式
 	elseif sgs.current_mode:find("mini") then
 		sgs.role_predictable = true --身份预知
 		sgs.close_partners = true --不调整关系策略
 		local callback = sgs.InitRelationship[sgs.current_mode]
-		if callback then
-			callback()
-		else
+		if not callback then
 			callback = sgs.InitRelationship["gamerule"]
-			callback()
 		end
+		callback()
 	--自定义场景模式
 	elseif sgs.current_mode:find("custom_scenario") then
 		sgs.role_predictable = true --身份预知
 		local callback = sgs.InitRelationship[sgs.current_mode]
-		if callback then
-			callback()
-		else
+		if not callback then
 			callback = sgs.InitRelationship["gamerule"]
-			callback()
 		end
+		callback()
 	--场景模式
 	elseif not sgs.current_mode:find("0") then 
 		sgs.role_predictable = true --身份预知
 		local callback = sgs.InitRelationship[sgs.current_mode]
-		if callback then
-			callback()
-		else
+		if not callback then
 			callback = sgs.InitRelationship["gamerule"]
-			callback()
 		end
-	--身份局
+		callback()
+	--身份局模式
 	else
 		if sgs.hegemony_mode then --国战模式
-			InitHegeRelationship()
+			sgs.InitRelationship["hegemony"]()
 		else --普通身份局
 			sgs.InitRelationship["gamerule"]()
 		end
@@ -584,7 +620,7 @@ function sgs.RegistCamp(role, player)
 	assert(convert)
 	if convert["skip"] then
 		local callback = convert["convert_func"]
-		if callback and type(callback) == "function" then
+		if type(callback) == "function" then
 			return callback(role, player)
 		end
 	end
@@ -603,6 +639,7 @@ end
 	功能：AI系统初始化
 	参数：无
 	结果：无
+	备注：换将或复活时，系统也会自动进入此函数将角色重新初始化
 ]]--
 function SmartAI:initialize(player)
 	self.player = player --自身角色
@@ -647,15 +684,21 @@ function SmartAI:initialize(player)
 		setInitialTables() --公共表初始化
 	end
 	
+msg(string.format("Initialize:%s(%s)", player:getGeneralName(), player:objectName()))	
 	local myname = self.player:objectName()
-	self.camp = sgs.RegistCamp(self.role, self.player) --自身阵营
-	sgs.system_record[myname] = self.camp --AI真实阵营（系统专用）
-	local count = sgs.ai_members_count[self.camp] 
-	if count then
-		sgs.ai_members_count[self.camp] = count + 1
+	if sgs.game_start then
+		sgs.RevivePlayer(player)
+		self.camp = sgs.system_record[myname]
 	else
-		sgs.ai_members_count[self.camp] = 1
-		table.insert(sgs.ai_camps, self.camp)
+		self.camp = sgs.RegistCamp(self.role, self.player) --自身阵营
+		sgs.system_record[myname] = self.camp --AI真实阵营（系统专用）
+		local count = sgs.ai_members_count[self.camp] 
+		if count then
+			sgs.ai_members_count[self.camp] = count + 1
+		else
+			sgs.ai_members_count[self.camp] = 1
+			table.insert(sgs.ai_camps, self.camp)
+		end
 	end
 	self.friends = {self.player}
 	self.friends_noself = {}
@@ -665,10 +708,16 @@ function SmartAI:initialize(player)
 	self.partners_noself = {}
 	self.opponents = {}
 	self.neutrals = {}
-	sgs.ai_relationship[myname] = {}
-	sgs.ai_friendly_level[myname] = {}
-	sgs.ai_hostile_level[myname] = {}
-	sgs.ai_camp_history[myname] = {}
+	if sgs.game_start then
+		self.room:setPlayerMark(self.player, "UpdateIntention", 1)
+		self:updatePlayers()
+		self:choosePartner()
+	else
+		sgs.ai_relationship[myname] = {}
+		sgs.ai_friendly_level[myname] = {}
+		sgs.ai_hostile_level[myname] = {}
+		sgs.ai_camp_history[myname] = {}
+	end
 	sgs.card_lack[myname] = {
 		["Slash"] = 0,
 		["Jink"] = 0,
@@ -676,9 +725,10 @@ function SmartAI:initialize(player)
 	}
 	sgs.ai_init_count = sgs.ai_init_count + 1
 	
-	local allplayers = self.room:getAllPlayers()
-	if sgs.ai_init_count == allplayers:length() then
-		InitialRelationship(allplayers) --角色关系初始化
+	local count = self.room:alivePlayerCount()
+	if sgs.ai_init_count == count then
+		InitialRelationship() --角色关系初始化
+		sgs.game_start = true
 	end
 end
 --[[****************************************************************
@@ -942,6 +992,11 @@ function SmartAI:friendshipLevel(target, player)
 		else
 			level = 0
 		end
+	end
+	if self:isPartner(player, target) then
+		level = level + 2
+	elseif self:isOpponent(player, target) then
+		level = level - 2
 	end
 	return level
 end
@@ -1247,7 +1302,7 @@ function SmartAI:getGuhuoViewAsCard(class_name)
 		elseif class_name == "Jink" then
 			index = count
 		end
---msg(string.format("guhuo:%s", class_name))
+msg(string.format("guhuo:%s", class_name))
 		local object_name = sgs.objectName[class_name]
 		assert(object_name)
 		local card = sgs[object_name]
@@ -2428,16 +2483,23 @@ function sgs.CampStandardization()
 	end
 end
 --[[
-	功能：加入新角色（为解决复活问题）
+	功能：复活角色
 	参数：player（ServerPlayer类型，表示新加入的角色）
 	结果：无
 ]]--
-function sgs.AddNewPlayer(player)
+function sgs.RevivePlayer(player)
 	local name = player:objectName() --角色对象名
 	local role = player:getRole() --角色身份
-	local camp = sgs.RegistCamp(role, player) --角色阵营
-	sgs.ai_camp[name] = camp --AI推定阵营（因为复活时身份是确定的，所以不再推定，直接写入真实阵营）
-	sgs.system_record[name] = camp --真实阵营
+	local camp = sgs.system_record[name] --利用真实阵营复活
+	if not camp then --如果属于新加入的角色
+		camp = sgs.RegistCamp(role, player) --注册阵营
+		sgs.system_record[name] = camp --记录真实阵营
+		if sgs.role_predictable then --如果开启了身份预知
+			sgs.ai_camp[name] = camp --写入AI推定阵营
+		end
+	else --如果只是复活
+		sgs.ai_camp[name] = camp --AI推定阵营（因为复活时身份是确定的，所以不再推定，直接写入真实阵营）
+	end
 	--更新该阵营成员数
 	local count = sgs.ai_members_count[camp] 
 	if count then
@@ -2453,14 +2515,17 @@ end
 	功能：去除角色
 	参数：player（ServerPlayer类型，表示被去除的角色）
 	结果：无
+	备注：考虑到之后可能出现的复活、换将等问题，
+		这里保留了sgs.system_record中的内容，
+		只是清除了作为外界推断结果的sgs.ai_camp。
 ]]--
 function sgs.RemovePlayer(player)
 	local name = player:objectName()
-	sgs.ai_camp[name] = nil
-	local camp = sgs.system_record[name]
-	local count = sgs.ai_members_count[camp]
+	sgs.ai_camp[name] = nil --清除对该角色的阵营评定
+	local camp = sgs.system_record[name] --提取其真实阵营
+	local count = sgs.ai_members_count[camp] --更新该阵营角色数目
 	sgs.ai_members_count[camp] = count - 1
-	sgs.ai_relationship[name] = {}
+	sgs.ai_relationship[name] = {} --清空该角色的关系策略
 	sgs.CampStandardization() --清理阵营信息
 end
 --[[
@@ -2480,6 +2545,14 @@ function sgs.ExchangePlayerRole(playerA, playerB)
 	local temp = sgs.system_record[nameA]
 	sgs.system_record[nameA] = sgs.system_record[nameB]
 	sgs.system_record[nameB] = temp
+	--交换角色关系策略
+	local alives = global_room:getAlivePlayers()
+	for _,p in sgs.qlist(alives) do
+		local name = p:objectName()
+		local temp = sgs.ai_relationship[p][nameA]
+		sgs.ai_relationship[p][nameA] = sgs.ai_relationship[p][nameB]
+		sgs.ai_relationship[p][nameB] = temp
+	end
 	--交换身份
 	local roleA = playerA:getRole()
 	local roleB = playerB:getRole()
@@ -2489,6 +2562,52 @@ function sgs.ExchangePlayerRole(playerA, playerB)
 	global_room:setPlayerFlag(playerB, flagB)
 	global_room:setPlayerMark(playerA, "AI_ModifyRole", 1)
 	global_room:setPlayerMark(playerB, "AI_ModifyRole", 1)
+end
+--[[
+	功能：重置角色阵营信息
+	参数：无
+	结果：无
+]]--
+function SmartAI:ResetPlayerCamp()
+	if self.player:getMark("AI_ResetPlayerCamp") > 0 then
+		self.room:setPlayerMark(self.player, "AI_ResetPlayerCamp", 0)
+		self.role = self.player:getRole() --自身身份
+		self.camp = sgs.system_record[self.player:objectName()] --自身阵营
+		self:updatePlayers() --更新角色身份关系
+		self:choosePartner() --更新角色关系策略
+	end
+end
+--[[
+	功能：更新局势信息
+	参数：无
+	结果：无
+	备注：这里只是从宏观上把所有阵营sgs.ai_camps重置了，
+		并根据实际情况更新了每名角色的真实阵营sgs.system_record，
+		以及各阵营角色数sgs.ai_members_count。
+		但是记录每名角色推定阵营的sgs.ai_camp并没有改变（这个表决定了isFriend等关系），
+		角色间关系sgs.ai_relationship也没有改变（这个表决定了isPartner等关系）。
+]]--
+function sgs.updateAlivePlayers()
+msg("updateAlivePlayers")
+	local alives = global_room:getAlivePlayers()
+	sgs.ai_camps = {} 
+	sgs.ai_members_count = {}
+	sgs.renegade_count = 0 --重置内奸数目，否则会影响下面用到的sgs.RegistCamp
+	for _,p in sgs.qlist(alives) do
+		local role = p:getRole() --角色身份
+		local camp = sgs.RegistCamp(role, p) --重新注册阵营
+		sgs.system_record[p:objectName()] = camp --重置角色真实阵营
+		local count = sgs.ai_members_count[camp]  --更新阵营角色数目
+		if count then
+			sgs.ai_members_count[camp] = count + 1
+		else
+			sgs.ai_members_count[camp] = 1
+			table.insert(sgs.ai_camps, camp) --添加新阵营
+		end
+	end
+	for _,p in sgs.qlist(alives) do
+		global_room:setPlayerMark(p, "AI_ResetPlayerCamp", 1)
+	end
 end
 --[[
 	功能：阵营排序函数
@@ -2552,7 +2671,7 @@ function SmartAI:initPartners(pos)
 	for _,other in ipairs(self.unknowns) do
 		table.insert(self.neutrals, other)
 	end
---self:Debug_ShowMyAttitude()
+self:Debug_ShowMyAttitude()
 --sgs.Debug_ShowRelationship()
 end
 --[[
@@ -2672,7 +2791,7 @@ function SmartAI:choosePartner(pos)
 		sgs.ai_relationship[myname][XiaHouJie:objectName()] = "opponent"
 		table.remove(self.neutrals, 1)
 	end
---self:Debug_ShowMyAttitude()
+self:Debug_ShowMyAttitude()
 --sgs.Debug_ShowRelationship()
 end
 --[[
@@ -2708,7 +2827,15 @@ function SmartAI:initPlayers()
 		end
 	end
 	for _,p in sgs.qlist(others) do
-		table.insert(self.unknowns, p)
+		local camp = sgs.getCamp(p)
+		if self.camp == camp then
+			table.insert(self.friends, p)
+			table.insert(self.friends_noself, p)
+		elseif camp == "unknown" then
+			table.insert(self.unknowns, p)
+		else
+			table.insert(self.enemies, p)
+		end
 	end
 end
 --[[
@@ -2738,6 +2865,11 @@ function SmartAI:updatePlayers(pos)
 		local myname = self.player:objectName()
 		self.camp = sgs.ai_system_record[myname]
 		self.room:setPlayerMark(self.player, "AI_ModifyRole", 0)
+	end
+	--
+	if self.player:getMark("AI_ResetPlayerCamp") > 0 then
+		self:ResetPlayerCamp()
+		self.room:setPlayerMark(self.player, "AI_ResetPlayerCamp", 0)
 	end
 	-- 判断是否有必要更新角色信息
 	if self.player:getMark("UpdateIntention") > 0 then
@@ -3383,7 +3515,7 @@ function SmartAI:filterEvent(event, player, data)
 	elseif event == sgs.Death then --所有角色：阵亡时（全局时机）
 		self:updatePlayers()
 		if isRecorder then
-			-- self:updateAlivePlayerRoles() 
+			sgs.updateAlivePlayers()
 		end
 	elseif event == sgs.HpChanged then --所有角色：体力变化后
 		self:updatePlayers()
@@ -3391,10 +3523,10 @@ function SmartAI:filterEvent(event, player, data)
 		self:updatePlayers()
 	elseif event == sgs.BuryVictim then --所有角色：处理阵亡角色时
 		if isRecorder then
-			-- self:updateAlivePlayerRoles() 
 			local death = data:toDeath()
 			local victim = death.who
 			sgs.RemovePlayer(victim)
+			sgs.updateAlivePlayers() 
 		end
 		self:updatePlayers()
 	end
@@ -3863,7 +3995,7 @@ function SmartAI:filterEvent(event, player, data)
 						local lord = self:getMyLord(ZhangHe)
 						flag = true
 						if ZhangHe and lord then
-							if self:playerGetRound(zhanghe) <= self:playerGetRound(lord) then
+							if self:playerGetRound(ZhangHe) <= self:playerGetRound(lord) then
 								flag = false
 							end
 						end
@@ -7350,7 +7482,7 @@ function SmartAI:getTurnUseCard(handcards)
 		if #sgs.ai_current_series > 0 then --原有出牌序列还有牌可出
 			local break_func = sgs.ai_series[sgs.SeriesName]["break_condition"] --获取序列中断检测函数
 			if break_func and break_func(self) then --中断原有出牌序列
---msg("break:"..sgs.SeriesName)
+msg("break:"..sgs.SeriesName)
 				self:windUpSeries("Break")
 			else --继续按原序列出牌
 				card = sgs.ai_current_series[1]
@@ -7494,21 +7626,21 @@ function SmartAI:useBasicCard(card, use)
 			return 
 		end
 		--按照一般情形使用技能卡
-		if self.player:hasSkill("ytchengxiang") then
+--[[		if self.player:hasSkill("ytchengxiang") then
 			if card:getNumber() < 7 then
 				if self.player:getHandcardNum() < 8 then
 					return 
 				end
 			end
-		end
+		end]]--
 		--if self:shouldUseRende() then
 			--return 
 		--end
-		if self:needBear() then
+--[[		if self:needBear() then
 			if not (card:isKindOf("Peach") and self.player:getLostHp() > 1) then
 				return 
 			end
-		end
+		end]]--
 		self:useCardByClassName(card, use)
 	else
 		global_room:writeToConsole(debug.traceback()) 
@@ -7547,7 +7679,7 @@ function SmartAI:useTrickCard(card, use)
 				end
 			end
 		end
-		if self:needBear() then
+--[[		if self:needBear() then
 			if not sgs.isKindOf("AmazingGrace|ExNihilo|Snatch|IronChain|Collateral", card) then 
 				return 
 			end
@@ -7560,13 +7692,13 @@ function SmartAI:useTrickCard(card, use)
 					end
 				end
 			end
-		end
+		end]]--
 		-- if self:shouldUseRende() then
 			-- if not card:isKindOf("ExNihilo") then 
 				-- return 
 			-- end
 		-- end
-		if card:isKindOf("AOE") then
+--[[		if card:isKindOf("AOE") then
 			local others = self.room:getOtherPlayers(self.player)
 			local avail_num = others:length()
 			local avail_friends = 0
@@ -7635,9 +7767,9 @@ function SmartAI:useTrickCard(card, use)
 			if self:getAoeValue(card) > 0 then
 				use.card = card
 			end
-		end
+		end]]--
 		self:useCardByClassName(card, use)
-		if not card:isKindOf("AOE") then
+--[[		if not card:isKindOf("AOE") then
 			if use.to and not use.to:isEmpty() then
 				local name = sgs.getCardName(card)
 				if sgs.getCardValue(name, "damage") > 0 then
@@ -7653,7 +7785,7 @@ function SmartAI:useTrickCard(card, use)
 					use.card = nil
 				end
 			end
-		end
+		end]]--
 	else
 		global_room:writeToConsole(debug.traceback()) 
 	end
@@ -7684,7 +7816,7 @@ function SmartAI:useEquipCard(card, use)
 			return 
 		end
 		--按照一般情形使用技能卡
-		if self.player:hasSkill("ytchengxiang") then
+--[[		if self.player:hasSkill("ytchengxiang") then
 			if self.player:getHandcardNum() < 8 then
 				if card:getNumber() < 7 then
 					if self:getSameTypeEquip(card) then 
@@ -7773,11 +7905,11 @@ function SmartAI:useEquipCard(card, use)
 					end
 				end
 			end
-		end
+		end]]--
 		self:useCardByClassName(card, use)
-		if use.card or use.broken then 
+--[[		if use.card or use.broken then 
 			return 
-		end
+		end]]--
 		--Waiting For More Details
 	else
 		global_room:writeToConsole(debug.traceback()) 

@@ -698,6 +698,31 @@ end
 	描述：出牌阶段，你可以对一至三名角色造成至多共3点火焰伤害（你选择目标时任意分配每名目标角色受到的伤害点数）。若你将对一名角色分配2点或更多的火焰伤害，你须执行弃置四张不同花色的手牌并失去3点体力的消耗。 
 ]]--
 --[[
+	功能：判断是否有条件使用“大/中业炎技能卡”
+]]--
+function SmartAI:judgeGreatYeyan()
+	if self.player:getHandcardNum() >= 4 then
+		local spade, club, heart, diamond
+		local cards = self.player:getHandcards()
+		for _,card in sgs.qlist(cards) do
+			local suit = card:getSuit()
+			if suit == sgs.Card_Spade then
+				spade = true
+			elseif suit == sgs.Card_Heart then
+				heart = true
+			elseif suit == sgs.Card_Club then
+				club = true
+			elseif suit == sgs.Card_Diamond then
+				diamond = true
+			end
+		end
+		if spade and heart and club and diamond then
+			return true
+		end
+	end
+	return false
+end
+--[[
 	内容：“大/中业炎技能卡”、“小业炎技能卡”的卡牌成分
 ]]--
 sgs.card_constituent["GreatYeyanCard"] = {
@@ -729,7 +754,11 @@ sgs.ai_skills["yeyan"] = {
 		elseif sgs.Ask_SmallYeyanCard then
 			card_str = "@SmallYeyanCard=."
 		else
-			card_str = "@SmallYeyanCard=."
+			if self:judgeGreatYeyan() then
+				card_str = "@GreatYeyanCard=."
+			else
+				card_str = "@SmallYeyanCard=."
+			end
 		end
 		return sgs.Card_Parse(card_str)
 	end,
@@ -738,8 +767,276 @@ sgs.ai_skills["yeyan"] = {
 	end,
 }
 sgs.ai_skill_use_func["GreatYeyanCard"] = function(self, card, use)
+	if #self.opponents > 0 then
+		local changeToSmall = true
+		self:sort(self.opponents, "hp")
+		for _,enemy in ipairs(self.opponents) do
+			if enemy:isChained() then
+				if self:isGoodChainTarget(enemy, nil, nil, 3) then
+					changeToSmall = false
+					break
+				end
+			else
+				if enemy:getHp() <= 3 then
+					changeToSmall = false
+					break
+				elseif enemy:hasArmorEffect("Vine") then
+					changeToSmall = false
+					break 
+				end
+			end
+		end
+		if changeToSmall then
+			local callback = sgs.ai_skill_use_func["SmallYeyanCard"]
+			return callback(self, card, use)
+		else
+			if self:amLord() then
+				if sgs.turncount <= 1 then
+					return 
+				elseif self:getAllPeachNum() < 4 - self.player:getHp() then
+					return 
+				elseif self:countRebel() > #self:getChainedOpponents() then
+					return 
+				end
+			elseif self:amRenegade() then
+				if self.room:alivePlayerCount() > 2 then
+					if self:getCardsNum("Peach") < 3 - self.player:getHp() then
+						return 
+					end
+				end
+			end
+			local handcards = self.player:getHandcards()
+			local cards = sgs.QList2Table(handcards)
+			self:sortByUseValue(cards, true)
+			local to_use = {}
+			local spade, heart, club, diamond
+			for _,c in ipairs(cards) do
+				local suit = c:getSuit()
+				if suit == sgs.Card_Spade then
+					if not spade then
+						spade = c
+						table.insert(to_use, c:getId())
+					end
+				elseif suit == sgs.Card_Heart then
+					if not heart then
+						heart = c
+						table.insert(to_use, c:getId())
+					end
+				elseif suit == sgs.Card_Club then
+					if not club then
+						club = c
+						table.insert(to_use, c:getId())
+					end
+				elseif suit == sgs.Card_Diamond then
+					if not diamond then
+						diamond = c
+						table.insert(to_use, c:getId())
+					end
+				end
+			end
+			if #to_use == 4 then
+				local card_str = "@GreatYeyanCard="..table.concat(to_use, "+")
+				local acard = sgs.Card_Parse(card_str)
+				local targets = {}
+				for _,enemy in ipairs(self.opponents) do
+					if not enemy:hasArmorEffect("SilverLion") then
+						if self:damageIsEffective(enemy, sgs.DamageStruct_Fire) then
+							if self:friendshipLevel(enemy) < -4 then
+								local flag = true
+								if enemy:hasSkill("tianxiang") then
+									if not enemy:isKongcheng() then
+										flag = false
+									end
+								end
+								if flag then
+									table.insert(targets, enemy)
+								end
+							end
+						end
+					end
+				end
+				if #targets > 0 then
+					local target = nil
+					for _,enemy in ipairs(targets) do
+						if enemy:isChained() then
+							if self:isGoodChainTarget(enemy, nil, nil, 3) then
+								if enemy:hasArmorEffect("Vine") or enemy:getMark("@gale") > 0 then
+									use.card = acard
+									if use.to then
+										use.to:append(enemy)
+										use.to:append(enemy)
+										use.to:append(enemy)
+									end
+									return 
+								elseif not target then
+									target = enemy
+								end
+							end
+						end
+					end
+					if target then
+						use.card = acard
+						if use.to then
+							use.to:append(enemy)
+							use.to:append(enemy)
+							use.to:append(enemy)
+						end
+						return 
+					end
+					for _,enemy in ipairs(targets) do
+						if enemy:hasArmorEffect("Vine") or enemy:getMark("@gale") > 0 then
+							use.card = acard
+							if use.to then
+								use.to:append(enemy)
+								use.to:append(enemy)
+								use.to:append(enemy)
+							end
+							return 
+						elseif not target then
+							target = enemy
+						end
+					end
+					if target then
+						use.card = acard
+						if use.to then
+							use.to:append(enemy)
+							use.to:append(enemy)
+							use.to:append(enemy)
+						end
+					end
+				end
+			end
+		end
+	end
 end
 sgs.ai_skill_use_func["SmallYeyanCard"] = function(self, card, use)
+	self.yeyanchained = false
+	local acard = nil
+	if self.player:getHp() + self:getCardsNum("Peach") + self:getCardsNum("Analeptic") <= 2 then
+		acard = sgs.Card_Parse("@SmallYeyanCard=.")
+	end
+	if not acard then
+		local target_num = 0
+		local chained = 0
+		for _, enemy in ipairs(self.opponents) do
+			local flag = false
+			if enemy:getHp() <= 1 then
+				flag = true
+			elseif enemy:hasArmorEffect("Vine") then
+				flag = true
+			elseif enemy:getMark("@gale") > 0 then
+				flag = true
+			end
+			if flag then
+				if self:amRenegade() then
+					if self:mayLord(enemy) then
+						flag = false
+					end
+				end
+			end
+			if flag then
+				target_num = target_num + 1
+			end
+		end
+		for _, enemy in ipairs(self.opponents) do
+			if enemy:isChained() then
+				if self:isGoodChainTarget(enemy) then 
+					if chained == 0 then 
+						target_num = target_num +1 
+					end
+					chained = chained + 1
+				end
+			end
+		end
+		self.yeyanchained = ( chained > 1 )
+		if target_num > 2 then
+			acard = sgs.Card_Parse("@SmallYeyanCard=.")
+		elseif target_num > 1 and self.yeyanchained then
+			acard = sgs.Card_Parse("@SmallYeyanCard=.")
+		else
+			local aliveCount = self.room:alivePlayerCount()
+			if #self.opponents + 1 == aliveCount then
+				local mode = self.room:getMode()
+				local count = sgs.Sanguosha:getPlayerCount(mode)
+				if aliveCount < count then
+					acard = sgs.Card_Parse("@SmallYeyanCard=.")
+				end
+			end
+		end
+	end
+	if acard then
+		local targets = sgs.SPlayerList()
+		local enemies = {}
+		for _,enemy in ipairs(self.opponents) do
+			if self:damageIsEffective(enemy, sgs.DamageStruct_Fire) then
+				if enemy:isKongcheng() then
+					table.insert(enemies, enemy)
+				elseif not enemy:hasSkill("tianxiang") then
+					table.insert(enemies, enemy)
+				end
+			end
+		end
+		for _,enemy in ipairs(enemies) do
+			if enemy:isChained() then
+				if enemy:hasArmorEffect("Vine") then
+					if self:isGoodChainTarget(enemy) then
+						if not targets:contains(enemy) then
+							targets:append(enemy)
+							if targets:length() >= 3 then 
+								break 
+							end
+						end
+					end
+				end
+			end
+		end
+		if targets:length() < 3 then
+			for _,enemy in ipairs(enemies) do
+				if enemy:isChained() then
+					if self:isGoodChainTarget(enemy) then
+						if not targets:contains(enemy) then
+							targets:append(enemy) 
+							if targets:length() >= 3 then 
+								break 
+							end
+						end
+					end
+				end
+			end
+		end
+		if targets:length() < 3 then
+			for _,enemy in ipairs(enemies) do
+				if not enemy:isChained() then
+					if enemy:hasArmorEffect("Vine") then
+						if not targets:contains(enemy) then
+							targets:append(enemy)
+							if targets:length() >= 3 then 
+								break 
+							end
+						end
+					end
+				end
+			end
+		end
+		if targets:length() < 3 then
+			for _,enemy in ipairs(enemies) do
+				if not enemy:isChained() then
+					if not targets:contains(enemy) then
+						targets:append(enemy)
+						if targets:length() >= 3 then 
+							break 
+						end
+					end
+				end
+			end
+		end
+		if not targets:isEmpty() then
+			use.card = acard
+			if use.to then
+				use.to = targets
+			end
+		end
+	end
 end
 --[[****************************************************************
 	武将：神·诸葛亮（神）
@@ -754,7 +1051,7 @@ sgs.ai_skill_askforag["qixing"] = function(self, card_ids)
 		local card = sgs.Sanguosha:getCard(card_id)
 		table.insert(cards, card)
 	end
-	--self:sortByCardNeed(cards)
+	self:sortByCardNeed(cards)
 	local phase = player:getPhase()
 	if phase == sgs.Player_Draw then
 		return cards[#cards]:getEffectiveId()
@@ -1463,6 +1760,25 @@ sgs.ai_view_as_func["longhun>>FireSlash"] = function(self, card)
 	end
 end
 sgs.ai_view_as_func["longhun>>Peach"] = function(self, card)
+	if self.player:getHp() <= 1 then
+		if self:amLord() or self:amRenegade() then
+			local hearts = {}
+			local cards = self.player:getCards("he")
+			for _,heart in sgs.qlist(cards) do
+				if heart:getSuit() == sgs.Card_Heart then
+					table.insert(hearts, heart)
+				end
+			end
+			if #hearts > 0 then
+				self:sortByUseValue(hearts, true)
+				local heart = hearts[1]
+				local point = heart:getNumber()
+				local id = heart:getEffectiveId()
+				local card_str = string.format("peach:longhun[heart:%s]=%d", point, id)
+				return sgs.Card_Parse(card_str)
+			end
+		end
+	end
 end
 --[[
 	内容：“龙魂”响应方式

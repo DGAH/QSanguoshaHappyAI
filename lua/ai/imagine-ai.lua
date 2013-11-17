@@ -238,6 +238,39 @@ function SmartAI:hasSuit(suits, include_equip, player)
 	return self:getSuitNum(suits, include_equip, player) > 0
 end
 --[[
+	功能：获取一名角色手牌中最多可能拥有的某类卡牌的数目
+	参数：class_name（string类型，表示卡牌类型）
+		target（ServerPlayer类型，表示目标角色）
+	结果：number类型（count），表示估计的卡牌数目
+]]--
+function SmartAI:getRestCardsNum(class_name, target)
+	target = target or self.player
+	local total = sgs.Sanguosha:getCardCount() --卡牌总数
+	local total_num = 0 --目标类型卡牌总数
+	for i=1, total, 1 do
+		local card = sgs.Sanguosha:getEngineCard(i-1)
+		if card:isKindOf(class_name) then 
+			total_num = total_num + 1 
+		end
+	end
+	sgs.discard_pile = self.room:getDiscardPile() --弃牌堆
+	local discard_num = 0 --弃牌堆中的目标类型卡牌总数
+	for _,id in sgs.qlist(sgs.discard_pile) do
+		local card = sgs.Sanguosha:getEngineCard(id)
+		if card:isKindOf(class_name) then 
+			discard_num = discard_num + 1 
+		end
+	end
+	local known_num = 0 --已知的其他角色拥有的目标类型卡牌总数
+	local others = self.room:getOtherPlayers(target)
+	for _,p in sgs.qlist(others) do
+		local known = sgs.getKnownCard(p, class_name)
+		known_num = known_num + known
+	end
+	local count = total_num - discard_num - known_num
+	return count
+end
+--[[
 	功能：判断是否应避免对目标角色使用杀
 	参数：target（ServerPlayer类型，表示杀的目标角色）
 		source（ServerPlayer类型，表示使用杀的角色）

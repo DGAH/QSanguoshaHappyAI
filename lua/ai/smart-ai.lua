@@ -724,11 +724,12 @@ msg(string.format("Initialize:%s(%s)", player:getGeneralName(), player:objectNam
 		["Peach"] = 0,
 	}
 	sgs.ai_init_count = sgs.ai_init_count + 1
-	
+	if not sgs.game_start then
 	local count = self.room:alivePlayerCount()
-	if sgs.ai_init_count == count then
-		InitialRelationship() --角色关系初始化
-		sgs.game_start = true
+		if sgs.ai_init_count == count then
+			InitialRelationship() --角色关系初始化
+			sgs.game_start = true
+		end
 	end
 end
 --[[****************************************************************
@@ -934,7 +935,7 @@ function SmartAI:getOpponents(player, targets)
 	local opponents = {}
 	local name = player:objectName()
 	for _,p in sgs.qlist(targets) do
-		if sgs.ai_relationship[name][p:objectName()] == "opponents" then
+		if sgs.ai_relationship[name][p:objectName()] == "opponent" then
 			table.insert(opponents, p)
 		end
 	end
@@ -985,9 +986,9 @@ function SmartAI:friendshipLevel(target, player)
 			level = -6
 		end
 	else
-		if self:isFriend(target) then
+		if self:isFriend(target, player) then
 			level = 1
-		elseif self:isEnemy(target) then
+		elseif self:isEnemy(target, player) then
 			level = -1
 		else
 			level = 0
@@ -999,6 +1000,92 @@ function SmartAI:friendshipLevel(target, player)
 		level = level - 2
 	end
 	return level
+end
+--[[
+	内容：获取最友好的角色
+	参数：targets（table类型或sgs.QList<ServerPlayer*>类型，表示考察范围）
+		minLevel（number类型，表示关系评级的最低级别）
+		maxLevel（number类型，表示关系评级的最高级别）
+	结果：table类型（friends），表示所有最友好的角色
+]]--
+function SmartAI:getPriorFriend(targets, minLevel, maxLevel)
+	targets = targets or self.room:getAlivePlayers()
+	minLevel = minLevel or -99
+	maxLevel = maxLevel or 99
+	if type(targets) == "userdata" then
+		targets = sgs.QList2Table(targets)
+	end
+	local levels = {}
+	for _,p in ipairs(targets) do
+		levels[p] = self:friendshipLevel(p)
+	end
+	local function compare_func(a, b)
+		return levels[a] > levels[b]
+	end
+	table.sort(targets, compare_func)
+	local friends = {}
+	local mark = nil
+	for _,p in ipairs(targets) do
+		local level = levels[p]
+		if level < minLevel then
+			return friends
+		elseif level <= maxLevel then
+			if mark then
+				if level == mark then
+					table.insert(friends, p)
+				else
+					return friends
+				end
+			else
+				mark = level
+				table.insert(friends, p)
+			end
+		end
+	end
+	return friends
+end
+--[[
+	内容：获取最敌视的角色
+	参数：targets（table类型或sgs.QList<ServerPlayer*>类型，表示考察范围）
+		maxLevel（number类型，表示关系评级的最高级别）
+		minLevel（number类型，表示关系评级的最低级别）
+	结果：table类型（enemies），表示所有最友好的角色
+]]--
+function SmartAI:getPriorEnemy(targets, maxLevel, minLevel)
+	targets = targets or self.room:getAlivePlayers()
+	minLevel = minLevel or -99
+	maxLevel = maxLevel or 99
+	if type(targets) == "userdata" then
+		targets = sgs.QList2Table(targets)
+	end
+	local levels = {}
+	for _,p in ipairs(targets) do
+		levels[p] = self:friendshipLevel(p)
+	end
+	local function compare_func(a, b)
+		return levels[a] < levels[b]
+	end
+	table.sort(targets, compare_func)
+	local enemies = {}
+	local mark = nil
+	for _,p in ipairs(targets) do
+		local level = levels[p]
+		if level > maxLevel then
+			return enemies
+		elseif level >= minLevel then
+			if mark then
+				if level == mark then
+					table.insert(enemies, p)
+				else
+					return enemies
+				end
+			else
+				mark = level
+				table.insert(enemies, p)
+			end
+		end
+	end
+	return enemies
 end
 --[[****************************************************************
 	卡牌转化场景

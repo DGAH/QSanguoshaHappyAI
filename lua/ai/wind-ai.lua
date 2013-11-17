@@ -1147,8 +1147,264 @@ sgs.ai_skills["guhuo"] = {
 }
 table.insert(sgs.ai_global_flags, "questioner")
 table.insert(sgs.ai_choicemade_filter["cardUsed"], guhuo_filter)
+--[[
+	内容：“蛊惑技能卡”的具体使用方式
+]]--
 sgs.ai_skill_use_func["GuhuoCard"] = function(self, card, use)
-	--Waiting For More Details
+	local handcards = self.player:getHandcards()
+	local guhuo_str = {}
+	local other_str = {}
+	for _,trick in sgs.qlist(handcards) do
+		if trick:isNDTrick() then
+			local dummy_use = {
+				isDummy = true, 
+			}
+			self:useTrickCard(trick, dummy_use)
+			if dummy_use.card then
+				local card_str = "@GuhuoCard=" .. trick:getId() .. ":" .. trick:objectName()
+				if trick:getSuit() == sgs.Card_Heart then
+					table.insert(guhuo_str, card_str)
+				else
+					table.insert(other_str, card_str)
+				end
+			end
+		end
+	end
+	local other_suit = true
+	local weak_enemy = false
+	local ZhuGeLiang_kongcheng = false
+	local can_fake_guhuo = ( sgs.turncount > 1 )
+	for _,enemy in ipairs(self.opponents) do
+		local hp = enemy:getHp()
+		if hp > 2 then
+			other_suit = false
+		end
+		if hp > 1 then
+			can_fake_guhuo = true
+		end
+		if self:isWeak(enemy) then
+			weak_enemy = true
+		end
+		if enemy:hasSkill("kongcheng") then
+			if enemy:isKongcheng() then
+				ZhuGeLiang_kongcheng = true
+			end
+		end
+	end
+	if other_suit then
+		if #other_str > 0 then
+			table.insertTable(guhuo_str, other_str)
+		end
+	end
+	local peach_str = self:getGuhuoCard("Peach", self.player, true)
+	if peach_str then
+		table.insert(guhuo_str, peach_str)
+	end
+	local fake_cards = {}
+	for _,c in sgs.qlist(handcards) do
+		if c:isKindOf("Slash") then
+			if self:getCardsNum("Slash", self.player, "h") >= 2 then
+				if not self:isEquip("Crossbow") then
+					table.insert(fake_cards, c)
+				end
+			end
+		elseif c:isKindOf("Jink") then
+			if self:getCardsNum("Jink", self.player, "h") >= 3 then
+				table.insert(fake_cards, c)
+			end
+		elseif c:isKindOf("EquipCard") then
+			if self:getSameTypeEquip(card) then
+				table.insert(fake_cards, c)
+			end
+		elseif c:isKindOf("Disaster") then
+			table.insert(fake_cards, c)
+		end
+	end
+	self:sortByUseValue(fake_cards, true)
+	local banPackages = sgs.Sanguosha:getBanPackages()
+	local withManeuvering = true
+	for _,package in sgs.qlist(banPackages) do
+		if package == "maneuvering" then
+			withManeuvering = false
+			break
+		end
+	end
+	
+	local function fake_guhuo(object_name, can_fake_guhuo)
+		if #fake_cards > 0 then
+			local fake_card = nil
+			local to_guhuo = {
+				"peach", "ex_nihilo", "dismantlement", 
+				"amazing_grace", "archery_attack", "savage_assault", "god_salvation", 
+				"fire_attack"
+			}
+			if not withManeuvering then
+				table.remove(to_guhuo, #to_guhuo)
+			end
+			for i=1, #to_guhuo, 1 do
+				local forbiden = to_guhuo[i]
+				local c = sgs.Sanguosha:cloneCard(forbiden, sgs.Card_NoSuit, 0)
+				if self.player:isLocked(c) then 
+					table.remove(forbiden, #to_guhuo) 
+				end
+			end
+			if can_fake_guhuo then
+				for i=1, #to_guhuo do
+					if to_guhuo[i] == "god_salvation" then 
+						table.remove(to_guhuo, i) 
+						break 
+					end
+				end
+			end
+			for i=1, 10, 1 do
+				local to_use = fake_cards[math.random(1, #fake_cards)]
+				local guhuo_name = object_name or to_guhuo[math.random(1, #to_guhuo)]
+				local guhuo_card = sgs.Sanguosha:cloneCard(guhuo_name, to_use:getSuit(), to_use:getNumber())
+				local guhuo_class = guhuo_card:getClassName()
+				if self:getRestCardsNum(guhuo_class) > 0 then
+					local dummy_use = {
+						isDummy = true,
+					}
+				end
+				if guhuo_name == "peach" then
+					self:useBasicCard(guhuo_card, dummy_use)
+				else
+					self:useTrickCard(guhuo_card, dummy_use)
+				end
+				if dummy_use.card then
+					local card_str = "@GuhuoCard=" .. to_use:getId() .. ":" .. guhuo_name
+					fake_card = sgs.Card_Parse(card_str)
+					break
+				end
+			end
+		end
+		return fake_card
+	end
+	
+	local acard = nil
+	if #guhuo_str > 0 then
+		local card_str = guhuo_str[math.random(1, #guhuo_str)]
+		local str = card_str:split("=")
+		str = str[2]:split(":")
+		local card_id = str[1]
+		local card_name = str[2]
+		if card_name == "ex_nihilo" then
+			local c = sgs.Sanguosha:getCard(card_id)
+			if c:objectName() == card_name then
+				if math.random(1, 3) == 1 then
+					acard = fake_guhuo(card_name)
+				end
+				if not acard then
+					acard = sgs.Card_Parse(card_str)
+				end
+			end
+		end
+		if not acard then
+			if math.random(1, 5) == 1 then
+				acard = fake_guhuo()
+			end
+		end
+		if not acard then
+			acard = sgs.Card_Parse(card_str)
+		end
+	end
+	if not acard then
+		if can_fake_guhuo then
+			if math.random(1, 4) ~= 1 then
+				acard = fake_guhuo(nil, can_fake_guhuo)
+			end
+		end
+	end
+	if not acard then
+		if ZhuGeLiang_kongcheng then
+			if fake_cards > 0 then
+				local id = fake_cards[1]:getEffectiveId()
+				local card_str = "@GuhuoCard="..id..":".."amazing_grace"
+				acard = sgs.Card_Parse(card_str)
+			end
+		end
+	end
+	if not acard then
+		if #fake_cards > 0 then
+			local to_draw = false
+			for _,lordname in ipairs(sgs.ai_lords) do
+				local lord = findPlayerByObjectName(self.room, lordname)
+				if self:isPartner(lord) then
+					if lord:getHp() <= 1 then
+						if self:isWeak(lord) then
+							if not self:amLord() then
+								to_draw = true
+								break
+							end
+						end
+					end
+				end
+			end
+			if not to_draw then
+				if not weak_enemy then
+					if self:amLoyalist() then
+						if self:countRebel() > 0 then
+							if self:countLoyalist() > self:countRenegade() + self:countRebel() then
+								to_draw = true
+							end
+						end
+					elseif self:amRebel() then
+						if self:countRebel() > self:countRenegade() + self:countLoyalist() + 2 then
+							to_draw = true
+						end
+					end
+				end
+			end
+			if to_draw then
+				local card_name = nil
+				local names = {
+					"ex_nihilo", "snatch", "dismantlement",
+					"amazing_grace", "archery_attack", "savage_assault", "god_salvation", 
+					"duel"
+				}
+				for _,name in ipairs(names) do
+					local c = sgs.Sanguosha:cloneCard(name, sgs.Card_NoSuit, 0)
+					if self:getRestCardsNum(c:getClassName()) > 0 then
+						card_name = name
+						break 
+					end
+				end
+				if card_name then
+					local id = fake_cards[1]:getEffectiveId()
+					local card_str = "@GuhuoCard="..id..":"..card_name
+					acard = sgs.Card_Parse(card_str)
+				end
+			end
+		end
+	end
+	if not acard then
+		if sgs.slash:isAvailable(self.player) then
+			local card_str = self:getGuhuoCard("Slash", self.player, true)
+			if card_str then
+				local dummy_use = {
+					isDummy = true,
+				}
+				self:useBasicCard(sgs.slash, dummy_use)
+				if dummy_use.card then
+					acard = sgs.Card_Parse(card_str)
+				end
+			end
+		end
+	end
+	if acard then
+		local card_str = acard:toString()
+		local name = card_str:split(":")[3]
+		local guhuo_card = sgs.Sanguosha:cloneCard(name, acard:getSuit(), acard:getNumber())
+		guhuo_card:setSkillName("guhuo")
+		if guhuo_card:getTypeId() == sgs.Card_Basic then
+			self:useBasicCard(guhuo_card, use)
+		else
+			self:useTrickCard(guhuo_card, use)
+		end
+		if use.card then
+			use.card = acard
+		end
+	end
 end
 sgs.ai_skill_choice["guhuo"] = function(self, choices)
 	local YuJi = self.room:findPlayerBySkillName("guhuo")

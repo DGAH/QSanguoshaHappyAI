@@ -41,7 +41,7 @@ sgs.ai_skill_use["@@shensu1"] = function(self, prompt)
 		enemy_defense_table[name] = enemy_defense
 		local effective = false
 		if self:slashIsEffective(sgs.slash, enemy) then
-			if sgs.isGoodTarget(enemy, self.enemies, self) then
+			if sgs.isGoodTarget(self, enemy, self.opponents) then
 				effective = true
 			end
 		end

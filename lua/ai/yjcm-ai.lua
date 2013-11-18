@@ -1100,6 +1100,9 @@ sgs.ai_skill_use["@@xuanfeng"] = function(self, prompt)
 	local first = nil
 	local second = nil
 	first = self:findPlayerToDiscard("he", false)
+	if not first then
+		return "."
+	end
 	local others = self.room:getOtherPlayers(first)
 	second = self:findPlayerToDiscard("he", false, true, others)
 	if first then

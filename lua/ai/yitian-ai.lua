@@ -1738,7 +1738,7 @@ sgs.ai_skills["yisheask"] = {
 	end,
 	enabled = function(self, handcards)
 		if self.player:usedTimes("YisheAskCard") < 2 then 
-			local others = self.room:getOtherPlayers(self.room)
+			local others = self.room:getOtherPlayers(self.player)
 			for _,ZhangGongQi in sgs.qlist(others) do
 				if ZhangGongQi:hasSkill("yishe") then
 					local rices = ZhangGongQi:getPile("rice")

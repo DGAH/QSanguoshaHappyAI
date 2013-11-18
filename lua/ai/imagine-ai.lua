@@ -2182,6 +2182,30 @@ function SmartAI:getAoeValue(card, source)
 	return good - bad
 end
 --[[
+	功能：判断自己是否可以免于受到多目标攻击性锦囊牌的伤害
+	参数：card（Card类型，表示被针对的AOE卡牌）
+	结果：boolean类型，表示是否可以避免伤害
+]]--
+function SmartAI:canAvoidAOE(card)
+	if self:aoeIsEffective(card, self.player) then
+		if card:isKindOf("SavageAssault") then
+			if self:getCardsNum("Slash") > 0 then
+				return true
+			end
+		elseif card:isKindOf("ArcheryAttack") then
+			if self:getCardsNum("Jink") > 0 then
+				return true
+			elseif self:hasEightDiagramEffect() then
+				if self.player:getHp() > 1 then
+					return true
+				end
+			end
+		end
+		return false
+	end
+	return true
+end
+--[[
 	功能：判断一张卡牌对某角色而言是否特别有价值
 	参数：card（Card类型，表示待判断的卡牌）
 		player（ServerPlayer类型，表示作为标准的角色）
@@ -2257,11 +2281,10 @@ function SmartAI:getWoundedFriend(maleOnly)
 			end
 		end
 		if self:isWeak(player) then
-			local name = player:objectName()
-			if sgs.ai_lord[name] == name then
+			if self:mayLord(player) then
 				value = value - 10
 			end
-			if self.player:objectName() == name then
+			if self.player:objectName() == player:objectName() then
 				if player:hasSkill("qingnang") then
 					value = value - 5
 				end

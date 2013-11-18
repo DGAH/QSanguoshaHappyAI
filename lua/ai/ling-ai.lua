@@ -85,7 +85,7 @@ sgs.ai_damage_requirement["neoganglie"] = function(self, source, target)
 		if source:getHp() <= 2 then
 			if not source:hasSkill("buqu") then
 				if self:isOpponent(source, target) then
-					if sgs.isGoodTarget(source, self.opponents, self) then
+					if sgs.isGoodTarget(self, source, self.opponents) then
 						if not self:invokeDamagedEffect(source, target) then
 							if not self:needToLoseHp(source, target) then
 								return true

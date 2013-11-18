@@ -1126,7 +1126,7 @@ sgs.ai_skill_use["@@xiansi"] = function(self, prompt)
 		return #targets
 	end
 	
-	local player = nil --self:findPlayerToDiscard("he", true, false)
+	local player = self:findPlayerToDiscard("he", true, false)
 	if player then
 		if rest_num == 1 then 
 			return "@XiansiCard=.->" .. player:objectName() 

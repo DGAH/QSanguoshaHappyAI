@@ -315,13 +315,14 @@ end
 	结果：无
 ]]--
 sgs.InitRelationship["gamerule"] = function()
-	local lord = global_room:getLord()
 	local players = global_room:getAllPlayers()
-	local others = global_room:getOtherPlayers(lord)
 	local convert = sgs.ai_role_to_camp["gamerule"]
-	sgs.ai_camp[lord:objectName()] = convert["lord"]
-	sgs.ai_lord[lord:objectName()] = lord:objectName()
-	table.insert(sgs.ai_lords, lord:objectName())
+	local lord = global_room:getLord()
+	if lord then
+		sgs.ai_camp[lord:objectName()] = convert["lord"]
+		sgs.ai_lord[lord:objectName()] = lord:objectName()
+		table.insert(sgs.ai_lords, lord:objectName())
+	end
 	if sgs.role_predictable then --身份预知
 		for _,pA in sgs.qlist(players) do
 			local nameA = pA:objectName()
@@ -684,7 +685,7 @@ function SmartAI:initialize(player)
 		setInitialTables() --公共表初始化
 	end
 	
-msg(string.format("Initialize:%s(%s)", player:getGeneralName(), player:objectName()))	
+--msg(string.format("Initialize:%s(%s)", player:getGeneralName(), player:objectName()))	
 	local myname = self.player:objectName()
 	if sgs.game_start then
 		sgs.RevivePlayer(player)
@@ -709,7 +710,7 @@ msg(string.format("Initialize:%s(%s)", player:getGeneralName(), player:objectNam
 	self.opponents = {}
 	self.neutrals = {}
 	if sgs.game_start then
-		self.room:setPlayerMark(self.player, "UpdateIntention", 1)
+		self.room:setPlayerMark(self.player, "AI_UpdateIntention", 1)
 		self:updatePlayers()
 		self:choosePartner()
 	else
@@ -725,7 +726,7 @@ msg(string.format("Initialize:%s(%s)", player:getGeneralName(), player:objectNam
 	}
 	sgs.ai_init_count = sgs.ai_init_count + 1
 	if not sgs.game_start then
-	local count = self.room:alivePlayerCount()
+		local count = self.room:alivePlayerCount()
 		if sgs.ai_init_count == count then
 			InitialRelationship() --角色关系初始化
 			sgs.game_start = true
@@ -1913,9 +1914,9 @@ function sgs.isGoodTarget(self, target, players, isSlash)
 		if target:getMark("hunzi") == 0 then
 			if amLord then
 				if target:getHp() == 2 then
-					--if sgs.current_mode_players["loyalist"] > 0 then
+					if self:countLoyalist() > 0 then
 						return false
-					--end
+					end
 				end
 			end
 		end
@@ -2611,6 +2612,7 @@ function sgs.RemovePlayer(player)
 	sgs.ai_camp[name] = nil --清除对该角色的阵营评定
 	local camp = sgs.system_record[name] --提取其真实阵营
 	local count = sgs.ai_members_count[camp] --更新该阵营角色数目
+	assert(count)
 	sgs.ai_members_count[camp] = count - 1
 	sgs.ai_relationship[name] = {} --清空该角色的关系策略
 	sgs.CampStandardization() --清理阵营信息
@@ -2660,6 +2662,7 @@ function SmartAI:ResetPlayerCamp()
 		self.room:setPlayerMark(self.player, "AI_ResetPlayerCamp", 0)
 		self.role = self.player:getRole() --自身身份
 		self.camp = sgs.system_record[self.player:objectName()] --自身阵营
+		self.room:setPlayerMark(self.player, "AI_UpdateIntention", 1)
 		self:updatePlayers() --更新角色身份关系
 		self:choosePartner() --更新角色关系策略
 	end
@@ -2675,7 +2678,7 @@ end
 		角色间关系sgs.ai_relationship也没有改变（这个表决定了isPartner等关系）。
 ]]--
 function sgs.updateAlivePlayers()
-msg("updateAlivePlayers")
+--msg("updateAlivePlayers")
 	local alives = global_room:getAlivePlayers()
 	sgs.ai_camps = {} 
 	sgs.ai_members_count = {}
@@ -2953,14 +2956,14 @@ function SmartAI:updatePlayers(pos)
 		self.camp = sgs.ai_system_record[myname]
 		self.room:setPlayerMark(self.player, "AI_ModifyRole", 0)
 	end
-	--
+	--重置阵营信息
 	if self.player:getMark("AI_ResetPlayerCamp") > 0 then
 		self:ResetPlayerCamp()
 		self.room:setPlayerMark(self.player, "AI_ResetPlayerCamp", 0)
 	end
 	-- 判断是否有必要更新角色信息
-	if self.player:getMark("UpdateIntention") > 0 then
-		self.room:setPlayerMark(self.player, "UpdateIntention", 0)
+	if self.player:getMark("AI_UpdateIntention") > 0 then
+		self.room:setPlayerMark(self.player, "AI_UpdateIntention", 0)
 	else
 		return 
 	end
@@ -3220,7 +3223,7 @@ sgs.ai_card_intention["general"] = function(source, target, intention)
 			end
 			local alives = global_room:getAlivePlayers()
 			for _,p in sgs.qlist(alives) do
-				global_room:setPlayerMark(p, "UpdateIntention", 1)
+				global_room:setPlayerMark(p, "AI_UpdateIntention", 1)
 			end
 --msg(string.format("(%s->%s):%d", source:getGeneralName(), target:getGeneralName(), intention))
 			local toName = target:objectName()
@@ -3833,7 +3836,7 @@ function SmartAI:filterEvent(event, player, data)
 			if card:isKindOf("Duel") then
 				for _,lordname in ipairs(sgs.ai_lords) do
 					local lord = findPlayerByObjectName(self.room, lordname)
-					if lord:hasFlag("AIGlobal_NeedToWake") then
+					if lord and lord:hasFlag("AIGlobal_NeedToWake") then
 						lord:setFlags("-AIGlobal_NeedToWake")
 					end
 				end
@@ -4453,7 +4456,8 @@ function sgs.getUsePriority(card, player)
 	local priority = 0
 	local class_name = card:getClassName()
 	if card:isKindOf("EquipCard") then
-		for _,skill in ipairs(sgs.lose_equip_skill) do
+		local skills = sgs.lose_equip_skill:split("|")
+		for _,skill in ipairs(skills) do
 			if player:hasSkill(skill) then
 				return 15
 			end
@@ -4519,6 +4523,27 @@ end
 ]]--
 function SmartAI:sortByUseValue(cards, inverse, player)
 	if player then
+		local values = {}
+		for _,card in ipairs(cards) do
+			values[card] = sgs.getUseValue(card, player)
+		end
+		local function compare_func(a, b)
+			local valueA = values[a]
+			local valueB = values[b]
+			if valueA == valueB then
+				if inverse then
+					return a:getNumber() < b:getNumber()
+				else
+					return a:getNumber() > b:getNumber()
+				end
+			else
+				if inverse then
+					return valueA < valueB
+				else
+					return valueA > valueB
+				end
+			end
+		end
 	else
 		self:sortCards(cards, "use_value", inverse)
 	end
@@ -4528,10 +4553,27 @@ end
 	参数：cards（table类型，表示待排序的所有卡牌）
 		inverse（boolean类型，表示排序方向，true表示由大到小排序，false表示由小到大排序）
 		player（ServerPlayer类型，表示特定的卡牌保留角色）
+		kept（table类型，表示所有已经确定保留的卡牌）
 	结果：无（cards被改变）
 ]]--
-function SmartAI:sortByKeepValue(cards, inverse, player)
+function SmartAI:sortByKeepValue(cards, inverse, player, kept)
 	if player then
+		local values = {}
+		for _,card in ipairs(cards) do
+			local value = sgs.getKeepValue(card, player, kept)
+			value = sgs.adjustUsePriority(player, card, value)
+			if card:isKindOf("NatureSlash") then
+				value = value - 0.1
+			end
+			values[card] = value
+		end
+		local function compare_func(a, b)
+			if inverse then
+				return values[a] > values[b]
+			else
+				return values[a] < values[b]
+			end
+		end
 	else
 		self:sortCards(cards, "keep_value", not inverse)
 	end
@@ -4545,6 +4587,27 @@ end
 ]]--
 function SmartAI:sortByUsePriority(cards, inverse, player)
 	if player then
+		local priorities = {}
+		for _,card in ipairs(cards) do
+			priorities[card] = sgs.getUsePriority(card, player)
+		end
+		local function compare_func(a, b)
+			local priorityA = priorities[a]
+			local priorityB = priorities[b]
+			if priorityA == priorityB then
+				if inverse then
+					return a:getNumber() < b:getNumber()
+				else
+					return a:getNumber() > b:getNumber()
+				end
+			else
+				if inverse then
+					return priorityA < priorityB
+				else
+					return priorityA > priorityB
+				end
+			end
+		end
 	else
 		self:sortCards(cards, "use_priority", inverse)
 	end
@@ -6400,7 +6463,7 @@ function SmartAI:askForNullification(trick, from, to, positive) --05
 	end
 	if sgs.isKindOf("Duel|FireAttack|AOE", trick) then
 		if self:needToLoseHp(to, from) then --扣减体力有利
-			if self:isFriend(to) then
+			if self:isPartner(to) then
 				return nil 
 			end
 		end
@@ -6597,8 +6660,8 @@ function SmartAI:askForNullification(trick, from, to, positive) --05
 										return nil
 									elseif self.player:getHp() ~= 1 then
 										return nil
-									-- elseif self:canAvoidAOE(trick) then
-										-- return nil
+									elseif self:canAvoidAOE(trick) then
+										return nil
 									end
 								end
 							end
@@ -6614,9 +6677,9 @@ function SmartAI:askForNullification(trick, from, to, positive) --05
 								return nil
 							end
 						end
-						-- if not self:canAvoidAOE(trick) then
-							-- return null_card
-						-- end
+						if not self:canAvoidAOE(trick) then
+							return null_card
+						end
 					end
 					if self:isWeak(to) then
 						if self:aoeIsEffective(trick, to) then
@@ -6625,8 +6688,8 @@ function SmartAI:askForNullification(trick, from, to, positive) --05
 								return null_card
 							elseif null_num > 1 then
 								return null_card
-							-- elseif self:canAvoidAOE(trick) then
-								-- return null_card
+							elseif self:canAvoidAOE(trick) then
+								return null_card
 							elseif self.player:getHp() > 1 then
 								return null_card
 							elseif self:mayLord(to) then

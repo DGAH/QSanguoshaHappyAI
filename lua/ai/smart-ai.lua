@@ -2357,7 +2357,7 @@ function SmartAI:mayRenegade(player)
 	if name == self.player:objectName() then
 		return self:amRenegade() 
 	end
-	local camp = sgs.ai_camp[name] or ""
+	local camp = sgs.getCamp(player)
 	return string.find(camp, "renegade")
 end
 --[[
@@ -2371,7 +2371,7 @@ function SmartAI:mayRebel(player)
 	if name == self.player:objectName() then
 		return self:amRebel()
 	end
-	local camp = sgs.ai_camp[name] or ""
+	local camp = sgs.getCamp(player)
 	return string.find(camp, "rebel")
 end
 --[[
@@ -4411,7 +4411,7 @@ function sgs.getKeepValue(card, player, kept)
 		keepValue = sgs.card_constituent[class_name]["keep_value"] or 0
 	end
 	kept = kept or {}
-	local MaDai = global_room:findPlayerBySkillName("qianxi")
+	local MaDai = global_room:findPlayerBySkillName("nosqianxi")
 	for _,c in ipairs(kept) do
 		if c:getClassName() == class_name then
 			keepValue = keepValue - 1.2
@@ -7776,21 +7776,21 @@ function SmartAI:useBasicCard(card, use)
 			return 
 		end
 		--按照一般情形使用技能卡
---[[		if self.player:hasSkill("ytchengxiang") then
+		if self.player:hasSkill("ytchengxiang") then
 			if card:getNumber() < 7 then
 				if self.player:getHandcardNum() < 8 then
 					return 
 				end
 			end
-		end]]--
+		end
 		--if self:shouldUseRende() then
 			--return 
 		--end
---[[		if self:needBear() then
+		if self:needBear() then
 			if not (card:isKindOf("Peach") and self.player:getLostHp() > 1) then
 				return 
 			end
-		end]]--
+		end
 		self:useCardByClassName(card, use)
 	else
 		global_room:writeToConsole(debug.traceback()) 
@@ -7829,7 +7829,7 @@ function SmartAI:useTrickCard(card, use)
 				end
 			end
 		end
---[[		if self:needBear() then
+		if self:needBear() then
 			if not sgs.isKindOf("AmazingGrace|ExNihilo|Snatch|IronChain|Collateral", card) then 
 				return 
 			end
@@ -7842,13 +7842,13 @@ function SmartAI:useTrickCard(card, use)
 					end
 				end
 			end
-		end]]--
+		end
 		-- if self:shouldUseRende() then
 			-- if not card:isKindOf("ExNihilo") then 
 				-- return 
 			-- end
 		-- end
---[[		if card:isKindOf("AOE") then
+		if card:isKindOf("AOE") then
 			local others = self.room:getOtherPlayers(self.player)
 			local avail_num = others:length()
 			local avail_friends = 0
@@ -7917,7 +7917,7 @@ function SmartAI:useTrickCard(card, use)
 			if self:getAoeValue(card) > 0 then
 				use.card = card
 			end
-		end]]--
+		end
 		self:useCardByClassName(card, use)
 --[[		if not card:isKindOf("AOE") then
 			if use.to and not use.to:isEmpty() then
@@ -7966,7 +7966,12 @@ function SmartAI:useEquipCard(card, use)
 			return 
 		end
 		--按照一般情形使用技能卡
---[[		if self.player:hasSkill("ytchengxiang") then
+		if self:hasSkills("yongsi|renjie") then
+			if self:getOverflow() < 1 then
+				return 
+			end
+		end
+		if self.player:hasSkill("ytchengxiang") then
 			if self.player:getHandcardNum() < 8 then
 				if card:getNumber() < 7 then
 					if self:getSameTypeEquip(card) then 
@@ -8020,11 +8025,6 @@ function SmartAI:useEquipCard(card, use)
 					-- end
 				-- end
 			-- end
-			if self:hasSkills("yongsi|renjie") then
-				if self:getOverflow() < 2 then
-					return 
-				end
-			end
 			if self:hasSkills("qixi|duanliang|yinling") then
 				if card:isBlack() then
 					return 
@@ -8055,7 +8055,7 @@ function SmartAI:useEquipCard(card, use)
 					end
 				end
 			end
-		end]]--
+		end
 		self:useCardByClassName(card, use)
 --[[		if use.card or use.broken then 
 			return 

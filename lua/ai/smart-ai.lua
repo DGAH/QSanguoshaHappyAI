@@ -336,9 +336,9 @@ sgs.InitRelationship["gamerule"] = function()
 				local roleB = pB:getRole()
 				sgs.ai_camp[nameB] = convert[roleB]
 				if sgs.ai_camp[nameB] == sgs.ai_camp[nameA] then
-					sgs.ai_relationship[nameA][nameB] = "opponent"
-				else
 					sgs.ai_relationship[nameA][nameB] = "partner"
+				else
+					sgs.ai_relationship[nameA][nameB] = "opponent"
 				end
 			end
 		end
